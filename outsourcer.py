@@ -136,12 +136,6 @@ class Code:
     def __getattr__(self, name):
         return Code(self, '.', name)
 
-    def __floordiv__(self, other):
-        return _binop(self, '//', _conv(other))
-
-    def __truediv__(self, other):
-        return _binop(self, '/', _conv(other))
-
     def __eq__(self, other):
         return _binop(self, '==', _conv(other))
 
@@ -150,6 +144,69 @@ class Code:
 
     def __add__(self, other):
         return _binop(self, '+', _conv(other))
+
+    def __radd__(self, other):
+        return _binop(_conv(other), '+', self)
+
+    def __sub__(self, other):
+        return _binop(self, '-', _conv(other))
+
+    def __rsub__(self, other):
+        return _binop(_conv(other), '-', self)
+
+    def __mul__(self, other):
+        return _binop(self, '*', _conv(other))
+
+    def __rmul__(self, other):
+        return _binop(_conv(other), '*', self)
+
+    def __matmul__(self, other):
+        return _binop(self, '@', _conv(other))
+
+    def __rmatmul__(self, other):
+        return _binop(_conv(other), '@', self)
+
+    def __truediv__(self, other):
+        return _binop(self, '/', _conv(other))
+
+    def __rtruediv__(self, other):
+        return _binop(_conv(other), '/', self)
+
+    def __floordiv__(self, other):
+        return _binop(self, '//', _conv(other))
+
+    def __rfloordiv__(self, other):
+        return _binop(_conv(other), '//', self)
+
+    def __mod__(self, other):
+        return _binop(self, '%', _conv(other))
+
+    def __rmod__(self, other):
+        return _binop(_conv(other), '%', self)
+
+    def __pow__(self, other):
+        return _binop(self, '**', _conv(other))
+
+    def __rpow__(self, other):
+        return _binop(_conv(other), '**', self)
+
+    def __and__(self, other):
+        return _binop(self, '&', _conv(other))
+
+    def __rand__(self, other):
+        return _binop(_conv(other), '&', self)
+
+    def __or__(self, other):
+        return _binop(self, '|', _conv(other))
+
+    def __ror__(self, other):
+        return _binop(_conv(other), '|', self)
+
+    def __xor__(self, other):
+        return _binop(self, '^', _conv(other))
+
+    def __rxor__(self, other):
+        return _binop(_conv(other), '^', self)
 
     def __gt__(self, other):
         return _binop(self, '>', _conv(other))

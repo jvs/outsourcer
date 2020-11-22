@@ -40,3 +40,23 @@ def test_function_calls():
     foo = Code('foo')
     bar = Code('bar')
     assert _render(foo(bar, 'baz')) == "foo(bar, 'baz')"
+    assert _render(foo(bar(foo))) == 'foo(bar(foo))'
+
+
+def test_simple_operators():
+    foo = Code('foo')
+    bar = Code('bar')
+
+    assert _render(foo + bar) == '(foo + bar)'
+    assert _render(foo + 'bar') == "(foo + 'bar')"
+    assert _render('foo' + bar) == "('foo' + bar)"
+
+    assert _render(foo - bar) == '(foo - bar)'
+    assert _render(foo - 10) == '(foo - 10)'
+    assert _render(20 - bar) == '(20 - bar)'
+
+    assert _render(foo * 30) == '(foo * 30)'
+    assert _render(40 * foo) == '(40 * foo)'
+
+    assert _render(bar @ 50) == '(bar @ 50)'
+    assert _render(60 @ bar) == '(60 @ bar)'

@@ -5,10 +5,10 @@ import io
 
 __version__ = '0.0.1'
 
-__all__ = ['Builder', 'Src', 'Str']
+__all__ = ['CodeBuilder', 'Code', 'Val']
 
 
-class Builder:
+class CodeBuilder:
     def __init__(self):
         self._statements = []
         self._num_blocks = 1
@@ -33,9 +33,9 @@ class Builder:
     def has_available_blocks(self, num_blocks):
         return self._num_blocks + num_blocks <= self._max_num_blocks
 
-    def var(self, base_name, initializer=None):
+    def fresh_var(self, base_name, initializer=None):
         self._names[base_name] += 1
-        result = Src(f'{base_name}{self._names[base_name]}')
+        result = Code(f'{base_name}{self._names[base_name]}')
         if initializer is not None:
             self.append(result << initializer)
         return result
@@ -47,7 +47,7 @@ class Builder:
         return self._control_block('if', condition)
 
     def IF_NOT(self, condition):
-        return self.IF(Src('not', condition))
+        return self.IF(Code('not', condition))
 
     @contextmanager
     def ELSE(self):
@@ -72,7 +72,7 @@ class Builder:
         with self._new_block() as body:
             yield
         self.extend([
-            Src(keyword, ' ', condition, ':'),
+            Code(keyword, ' ', condition, ':'),
             _Block(body),
         ])
 
@@ -95,63 +95,77 @@ class Builder:
             self._statements = prev
 
 
-class Src:
+class Code:
     def __init__(self, *parts):
-        parts = [_conv(x) for x in parts]
         self._parts = parts
 
     def _write(self, writer):
         for part in self._parts:
             writer.write(part)
 
+    def __repr__(self):
+        writer = _Writer()
+        self._write(writer)
+        return writer.getvalue()
+
     def __lshift__(self, other):
-        return Src(self, ' = ', other)
+        return Code(self, ' = ', _conv(other))
 
     def __rshift__(self, other):
-        return Src(self, ' : ', other)
+        return Code(self, ' : ', _conv(other))
 
     def __call__(self, *args, **kwargs):
         parts = [self, '(']
 
         for arg in args:
-            parts.extend([arg, ', '])
+            parts.extend([_conv(arg), ', '])
 
         for key, value in kwargs.items():
-            parts.extend([key, '=', value, ', '])
+            parts.extend([key, '=', _conv(value), ', '])
 
         # Remove a trailing comma.
         if args or kwargs:
             parts.pop()
 
         parts.append(')')
-        return Src(*parts)
+        return Code(*parts)
 
     def __getitem__(self, key):
-        return Src(self, '[', key, ']')
+        return Code(self, '[', _conv(key), ']')
 
     def __getattr__(self, name):
-        return Src(self, '.', key)
+        return Code(self, '.', name)
+
+    def __floordiv__(self, other):
+        return _binop(self, '//', _conv(other))
+
+    def __truediv__(self, other):
+        return _binop(self, '/', _conv(other))
 
     def __eq__(self, other):
-        return _binop(self, '==', other)
+        return _binop(self, '==', _conv(other))
 
     def __ne__(self, other):
-        return _binop(self, '!=', other)
+        return _binop(self, '!=', _conv(other))
 
     def __add__(self, other):
-        return _binop(self, '+', other)
+        return _binop(self, '+', _conv(other))
 
     def __gt__(self, other):
-        return _binop(self, '>', other)
+        return _binop(self, '>', _conv(other))
 
     def __ge__(self, other):
-        return _binop(self, '>=', other)
+        return _binop(self, '>=', _conv(other))
 
     def __lt__(self, other):
-        return _binop(self, '<', other)
+        return _binop(self, '<', _conv(other))
 
     def __le__(self, other):
-        return _binop(self, '<=', other)
+        return _binop(self, '<=', _conv(other))
+
+
+def Val(obj):
+    return Code(repr(obj))
 
 
 class _Block:
@@ -166,49 +180,12 @@ class _Block:
                 writer.write_line(statement)
 
 
-def Str(string_value):
-    return Src(repr(string_value))
-
-
 def _binop(a, op, b):
-    return Src('(', a, f' {op} ', b, ')')
+    return Code('(', a, f' {op} ', b, ')')
 
 
 def _conv(x):
-    if isinstance(x, (list, tuple)):
-        return _seq(x, )
-    elif isinstance(x, dict):
-        return _dict(x)
-    else:
-        return x
-
-
-def _dict(x):
-    parts = ['{']
-    for k, v in x.items():
-        parts.extend([k, ':', v, ', '])
-
-    # Remove trailing comma if it's non-empty.
-    if len(x) > 1:
-        parts.pop()
-
-    parts.append('}')
-    return Src(*parts)
-
-
-def _seq(elements):
-    is_list = isinstance(elements, list)
-
-    parts = ['[' if is_list else '(']
-    for element in elements:
-        parts.extend([element, ', '])
-
-    # Remove trailing comma if it's not necessary.
-    if is_list or len(elements) > 1:
-        parts.pop()
-
-    parts.append(']' if is_list else ')')
-    return Src(*parts)
+    return x if isinstance(x, Code) else Val(x)
 
 
 class _Writer:

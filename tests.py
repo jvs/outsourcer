@@ -8,7 +8,7 @@ def test_simple_program():
 
     b = CodeBuilder()
     with b.IF(foo + 1 < bar):
-        b(PRINT('ok'))
+        b += PRINT('ok')
 
     result = b.write_source().strip()
     assert result == "if ((foo + 1) < bar):\n    print('ok')"
@@ -16,7 +16,7 @@ def test_simple_program():
 
 def _render(expr):
     b = CodeBuilder()
-    b(expr)
+    b += expr
     return b.write_source().strip()
 
 
@@ -60,3 +60,60 @@ def test_simple_operators():
 
     assert _render(bar @ 50) == '(bar @ 50)'
     assert _render(60 @ bar) == '(60 @ bar)'
+
+    assert _render(foo / 70) == '(foo / 70)'
+    assert _render(80 / foo) == '(80 / foo)'
+
+    assert _render(bar // 90) == '(bar // 90)'
+    assert _render(11 // bar) == '(11 // bar)'
+
+    assert _render(foo & 12) == '(foo & 12)'
+    assert _render(13 & foo) == '(13 & foo)'
+
+    assert _render(bar | 14) == '(bar | 14)'
+    assert _render(15 | bar) == '(15 | bar)'
+
+    assert _render(foo ^ 16) == '(foo ^ 16)'
+    assert _render(17 ^ foo) == '(17 ^ foo)'
+
+    assert _render(foo > 18) == '(foo > 18)'
+    assert _render(19 > foo) == '(foo < 19)'
+
+    assert _render(bar < 20) == '(bar < 20)'
+    assert _render(21 < bar) == '(bar > 21)'
+
+    assert _render(foo >= 22) == '(foo >= 22)'
+    assert _render(23 >= foo) == '(foo <= 23)'
+
+    assert _render(bar <= 24) == '(bar <= 24)'
+    assert _render(25 <= bar) == '(bar >= 25)'
+
+    assert _render(foo == 26) == '(foo == 26)'
+    assert _render(27 == foo) == '(foo == 27)'
+
+    assert _render(bar != 28) == '(bar != 28)'
+    assert _render(29 != bar) == '(bar != 29)'
+
+    assert _render(foo.baz) == 'foo.baz'
+    assert _render(foo[30]) == 'foo[30]'
+    assert _render(foo.baz[31].fiz[32]) == 'foo.baz[31].fiz[32]'
+
+    assert _render(-bar) == '(-bar)'
+    assert _render(+bar) == '(+bar)'
+    assert _render(~bar) == '(~bar)'
+
+    assert _render(abs(foo)) == 'abs(foo)'
+
+
+def test_for_statement():
+    foo = Code('foo')
+    bar = Code('bar')
+    PRINT = Code('print')
+
+    b = CodeBuilder()
+    b += bar << Code('baz()')
+    with b.FOR(foo, in_=bar):
+        b += PRINT(foo)
+
+    result = b.write_source().strip()
+    assert result == 'bar = baz()\nfor foo in bar:\n    print(foo)'

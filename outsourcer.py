@@ -15,8 +15,8 @@ class CodeBuilder:
         self._max_num_blocks = 19
         self._names = defaultdict(int)
 
-    def __call__(self, statement):
-        self.append(statement)
+    def __iadd__(self, statement):
+        return self.append(statement)
 
     def write_source(self):
         writer = _Writer()
@@ -26,6 +26,7 @@ class CodeBuilder:
 
     def append(self, statement):
         self._statements.append(statement)
+        return self
 
     def extend(self, statements):
         self._statements.extend(statements)
@@ -47,7 +48,7 @@ class CodeBuilder:
         return self._control_block('if', condition)
 
     def IF_NOT(self, condition):
-        return self.IF(Code('not', condition))
+        return self.IF(Code('not', _conv(condition)))
 
     @contextmanager
     def ELSE(self):
@@ -57,6 +58,10 @@ class CodeBuilder:
             'else:',
             _Block(else_body),
         ])
+
+    def FOR(self, item, in_):
+        expr = Code(_conv(item), ' in ', _conv(in_))
+        return self._control_block('for', expr)
 
     @contextmanager
     def breakable(self):
@@ -72,7 +77,7 @@ class CodeBuilder:
         with self._new_block() as body:
             yield
         self.extend([
-            Code(keyword, ' ', condition, ':'),
+            Code(keyword, ' ', _conv(condition), ':'),
             _Block(body),
         ])
 
@@ -136,89 +141,110 @@ class Code:
     def __getattr__(self, name):
         return Code(self, '.', name)
 
+    def __neg__(self):
+        return Code('(-', self, ')')
+
+    def __pos__(self):
+        return Code('(+', self, ')')
+
+    def __invert__(self):
+        return Code('(~', self, ')')
+
+    def __abs__(self):
+        return Code('abs(', self, ')')
+
     def __eq__(self, other):
-        return _binop(self, '==', _conv(other))
+        return _binop(self, '==', other)
 
     def __ne__(self, other):
-        return _binop(self, '!=', _conv(other))
+        return _binop(self, '!=', other)
 
     def __add__(self, other):
-        return _binop(self, '+', _conv(other))
+        return _binop(self, '+', other)
 
     def __radd__(self, other):
-        return _binop(_conv(other), '+', self)
+        return _binop(other, '+', self)
 
     def __sub__(self, other):
-        return _binop(self, '-', _conv(other))
+        return _binop(self, '-', other)
 
     def __rsub__(self, other):
-        return _binop(_conv(other), '-', self)
+        return _binop(other, '-', self)
 
     def __mul__(self, other):
-        return _binop(self, '*', _conv(other))
+        return _binop(self, '*', other)
 
     def __rmul__(self, other):
-        return _binop(_conv(other), '*', self)
+        return _binop(other, '*', self)
 
     def __matmul__(self, other):
-        return _binop(self, '@', _conv(other))
+        return _binop(self, '@', other)
 
     def __rmatmul__(self, other):
-        return _binop(_conv(other), '@', self)
+        return _binop(other, '@', self)
 
     def __truediv__(self, other):
-        return _binop(self, '/', _conv(other))
+        return _binop(self, '/', other)
 
     def __rtruediv__(self, other):
-        return _binop(_conv(other), '/', self)
+        return _binop(other, '/', self)
 
     def __floordiv__(self, other):
-        return _binop(self, '//', _conv(other))
+        return _binop(self, '//', other)
 
     def __rfloordiv__(self, other):
-        return _binop(_conv(other), '//', self)
+        return _binop(other, '//', self)
 
     def __mod__(self, other):
-        return _binop(self, '%', _conv(other))
+        return _binop(self, '%', other)
 
     def __rmod__(self, other):
-        return _binop(_conv(other), '%', self)
+        return _binop(other, '%', self)
 
     def __pow__(self, other):
-        return _binop(self, '**', _conv(other))
+        return _binop(self, '**', other)
 
     def __rpow__(self, other):
-        return _binop(_conv(other), '**', self)
+        return _binop(other, '**', self)
 
     def __and__(self, other):
-        return _binop(self, '&', _conv(other))
+        return _binop(self, '&', other)
 
     def __rand__(self, other):
-        return _binop(_conv(other), '&', self)
+        return _binop(other, '&', self)
 
     def __or__(self, other):
-        return _binop(self, '|', _conv(other))
+        return _binop(self, '|', other)
 
     def __ror__(self, other):
-        return _binop(_conv(other), '|', self)
+        return _binop(other, '|', self)
 
     def __xor__(self, other):
-        return _binop(self, '^', _conv(other))
+        return _binop(self, '^', other)
 
     def __rxor__(self, other):
-        return _binop(_conv(other), '^', self)
+        return _binop(other, '^', self)
 
     def __gt__(self, other):
-        return _binop(self, '>', _conv(other))
+        return _binop(self, '>', other)
 
     def __ge__(self, other):
-        return _binop(self, '>=', _conv(other))
+        return _binop(self, '>=', other)
 
     def __lt__(self, other):
-        return _binop(self, '<', _conv(other))
+        return _binop(self, '<', other)
 
     def __le__(self, other):
-        return _binop(self, '<=', _conv(other))
+        return _binop(self, '<=', other)
+
+    def __int__(self):
+        return Code('int(', self, ')')
+
+    def __float__(self):
+        return Code('float(', self, ')')
+
+    def __complex__(self):
+        return Code('complex(', self, ')')
 
 
 def Val(obj):
@@ -238,7 +264,8 @@ class _Block:
 
 
 def _binop(a, op, b):
-    return Code('(', a, f' {op} ', b, ')')
+    assert isinstance(op, str)
+    return Code('(', _conv(a), f' {op} ', _conv(b), ')')
 
 
 def _conv(x):

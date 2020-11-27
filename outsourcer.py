@@ -1,19 +1,24 @@
 from collections import defaultdict
 from contextlib import contextmanager
 import io
+import textwrap
 
 
 __version__ = '0.0.1'
 
-__all__ = ['CodeBuilder', 'Code', 'Val']
+__all__ = ['CodeBuilder', 'Code', 'Val', 'Yield']
+
+OMITTED = object()
 
 
 class CodeBuilder:
     def __init__(self):
-        self._statements = []
+        self._root = []
+        self._statements = self._root
         self._num_blocks = 1
         self._max_num_blocks = 19
         self._names = defaultdict(int)
+        self._global_constants = {}
 
     def __iadd__(self, statement):
         return self.append(statement)
@@ -30,16 +35,64 @@ class CodeBuilder:
 
     def extend(self, statements):
         self._statements.extend(statements)
+        return self
+
+    def append_global(self, statement):
+        self._root.append(statement)
+
+    def define_global_constant(self, base_name, value):
+        value = Val(value)
+        key = repr(value)
+        if key in self._global_constants:
+            return self._global_constants[key]
+        else:
+            result = self._reserve_name(base_name)
+            self._global_constants[key] = result
+            self._root.append(result << value)
+            return result
 
     def has_available_blocks(self, num_blocks):
         return self._num_blocks + num_blocks <= self._max_num_blocks
 
-    def fresh_var(self, base_name, initializer=None):
-        self._names[base_name] += 1
-        result = Code(f'{base_name}{self._names[base_name]}')
-        if initializer is not None:
+    def var(self, base_name, initializer=OMITTED):
+        result = self._reserve_name(base_name)
+        if initializer is not OMITTED:
             self.append(result << initializer)
         return result
+
+    def _reserve_name(self, base_name):
+        self._names[base_name] += 1
+        return Code(f'{base_name}{self._names[base_name]}')
+
+    def add_comment(self, content):
+        if '\n' not in content:
+            ready = '# ' + content
+        else:
+            safe = content.replace('\\', '\\\\') .replace('"""', '\\"\\"\\"')
+            body = textwrap.indent(safe, '    ' * self._num_blocks)
+            tail = '    ' * (self._num_blocks - 1)
+            ready = f'"""\n{body}\n{tail}"""'
+        self.append(Code(ready))
+
+    def add_newline(self):
+        self.append('')
+
+    @contextmanager
+    def CLASS(self, name, superclass=None):
+        with self._new_block() as body:
+            yield
+        extra = f'({superclass})' if superclass else ''
+        self.append(Code('class ', name, extra, ':'))
+        self.append(_Block(body))
+        self.add_newline()
+
+    @contextmanager
+    def DEF(self, name, params):
+        with self._new_block() as body:
+            yield
+        self.append(Code('def ', name, '(', ', '.join(params), '):'))
+        self.append(_Block(body))
+        self.add_newline()
 
     def WHILE(self, condition):
         return self._control_block('while', condition)
@@ -48,38 +101,41 @@ class CodeBuilder:
         return self._control_block('if', condition)
 
     def IF_NOT(self, condition):
-        return self.IF(Code('not', _conv(condition)))
+        return self.IF(Code('not ', Val(condition)))
 
     @contextmanager
     def ELSE(self):
         with self._new_block() as else_body:
             yield
-        self.extend([
-            'else:',
-            _Block(else_body),
-        ])
+        self.append('else:')
+        self.append(_Block(else_body))
 
     def FOR(self, item, in_):
-        expr = Code(_conv(item), ' in ', _conv(in_))
+        expr = Code(Val(item), ' in ', Val(in_))
         return self._control_block('for', expr)
 
-    @contextmanager
-    def breakable(self):
-        with self.loop():
-            yield
-            self.append('break')
+    def RETURN(self, obj):
+        return self.append(Code('return ', Val(obj)))
 
-    def loop(self):
-        return self.WHILE(True)
+    def YIELD(self, obj):
+        return self.append(Code('yield ', Val(obj)))
+
+    @contextmanager
+    def global_section(self):
+        saved = self._statements, self._num_blocks
+        self._statements = self._root
+        self._num_blocks = 1
+        try:
+            yield
+        finally:
+            self._statements, self._num_blocks = saved
 
     @contextmanager
     def _control_block(self, keyword, condition):
         with self._new_block() as body:
             yield
-        self.extend([
-            Code(keyword, ' ', _conv(condition), ':'),
-            _Block(body),
-        ])
+        self.append(Code(keyword, ' ', Val(condition), ':'))
+        self.append(_Block(body))
 
     @contextmanager
     def _new_block(self):
@@ -92,12 +148,12 @@ class CodeBuilder:
 
     @contextmanager
     def _sandbox(self):
-        prev = self._statements
+        saved = self._statements
         self._statements = []
         try:
             yield self._statements
         finally:
-            self._statements = prev
+            self._statements = saved
 
 
 class Code:
@@ -114,19 +170,25 @@ class Code:
         return writer.getvalue()
 
     def __lshift__(self, other):
-        return Code(self, ' = ', _conv(other))
+        return Code(self, ' = ', Val(other))
+
+    def __rlshift__(self, other):
+        return Code(Val(other), ' = ', self)
 
     def __rshift__(self, other):
-        return Code(self, ' : ', _conv(other))
+        return Code(self, ' : ', Val(other))
+
+    def __rrshift__(self, other):
+        return Code(Val(other), ' : ', self)
 
     def __call__(self, *args, **kwargs):
         parts = [self, '(']
 
         for arg in args:
-            parts.extend([_conv(arg), ', '])
+            parts.extend([Val(arg), ', '])
 
         for key, value in kwargs.items():
-            parts.extend([key, '=', _conv(value), ', '])
+            parts.extend([key, '=', Val(value), ', '])
 
         # Remove a trailing comma.
         if args or kwargs:
@@ -136,7 +198,7 @@ class Code:
         return Code(*parts)
 
     def __getitem__(self, key):
-        return Code(self, '[', _conv(key), ']')
+        return Code(self, '[', Val(key), ']')
 
     def __getattr__(self, name):
         return Code(self, '.', name)
@@ -248,7 +310,11 @@ class Code:
 
 
 def Val(obj):
-    return Code(repr(obj))
+    return obj if isinstance(obj, Code) else Code(repr(obj))
+
+
+def Yield(obj):
+    return Code('(yield ', Val(obj), ')')
 
 
 class _Block:
@@ -257,7 +323,7 @@ class _Block:
             raise TypeError('Expected list of tuple')
         self._statements = statements or ['pass']
 
-    def _write(self, writer):
+    def _write_block(self, writer):
         with writer.indented():
             for statement in self._statements:
                 writer.write_line(statement)
@@ -265,11 +331,7 @@ class _Block:
 
 def _binop(a, op, b):
     assert isinstance(op, str)
-    return Code('(', _conv(a), f' {op} ', _conv(b), ')')
-
-
-def _conv(x):
-    return x if isinstance(x, Code) else Val(x)
+    return Code('(', Val(a), f' {op} ', Val(b), ')')
 
 
 class _Writer:
@@ -290,9 +352,14 @@ class _Writer:
             self._indent = was
 
     def write_line(self, obj):
-        self.write('    ' * self._indent)
-        self.write(obj)
-        self.write('\n')
+        if isinstance(obj, _Block):
+            obj._write_block(self)
+        elif isinstance(obj, str) and obj == '':
+            self.write('\n')
+        else:
+            self.write('    ' * self._indent)
+            self.write(obj)
+            self.write('\n')
 
     def write(self, obj):
         if hasattr(obj, '_write'):

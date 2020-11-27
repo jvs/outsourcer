@@ -7,6 +7,7 @@ def test_simple_program():
     PRINT = Code('print')
 
     b = CodeBuilder()
+
     with b.IF(foo + 1 < bar):
         b += PRINT('ok')
 

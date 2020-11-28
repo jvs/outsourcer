@@ -134,13 +134,14 @@ def test_extend_method():
     assert result == "fiz = 'ok'\nbuz = fiz.upper()"
 
 
-def test_tuple_assignment():
+def test_unpacking_assignment():
     zim, zam, zoom = Code('zim'), Code('zam'), Code('zoom')
-    assign = (zim, zam) << zoom()
-    assert _render(assign) == '(zim, zam) = zoom()'
+    assert _render((zim, zam) << zoom()) == '(zim, zam) = zoom()'
+    assert _render([zim, zam] << zoom[0]) == '[zim, zam] = zoom[0]'
 
 
 def test_slice_expression():
     foo, bar = Code('foo'), Code('bar')
     assert _render(foo[bar : 10]) == 'foo[slice(bar, 10, None)]'
     assert _render(bar[11 : foo]) == 'bar[slice(11, foo, None)]'
+    assert _render(foo[1:9]) == 'foo[slice(1, 9, None)]'

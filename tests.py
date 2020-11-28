@@ -2,10 +2,7 @@ from outsourcer import Code, CodeBuilder
 
 
 def test_simple_program():
-    foo = Code('foo')
-    bar = Code('bar')
-    PRINT = Code('print')
-
+    foo, bar, PRINT = Code('foo'), Code('bar'), Code('print')
     b = CodeBuilder()
 
     with b.IF(foo + 1 < bar):
@@ -31,22 +28,20 @@ def test_simple_literals():
 
 
 def test_collections_with_expressions():
-    foo = Code('foo')
-    bar = Code('bar')
+    foo, bar = Code('foo'), Code('bar')
     assert _render([foo + 1, bar('ok')]) == "[(foo + 1), bar('ok')]"
     assert _render([foo({'key': bar / 2})]) == "[foo({'key': (bar / 2)})]"
 
 
 def test_function_calls():
-    foo = Code('foo')
-    bar = Code('bar')
+    foo, bar = Code('foo'), Code('bar')
     assert _render(foo(bar, 'baz')) == "foo(bar, 'baz')"
     assert _render(foo(bar(foo))) == 'foo(bar(foo))'
+    assert _render(foo(True, msg='hi', count=1)) == "foo(True, msg='hi', count=1)"
 
 
 def test_simple_operators():
-    foo = Code('foo')
-    bar = Code('bar')
+    foo, bar = Code('foo'), Code('bar')
 
     assert _render(foo + bar) == '(foo + bar)'
     assert _render(foo + 'bar') == "(foo + 'bar')"
@@ -95,6 +90,15 @@ def test_simple_operators():
     assert _render(bar != 28) == '(bar != 28)'
     assert _render(29 != bar) == '(bar != 29)'
 
+    assert _render(foo % 10) == '(foo % 10)'
+    assert _render(11 % foo) == '(11 % foo)'
+
+    assert _render(bar ** 12) == '(bar ** 12)'
+    assert _render(13 ** bar) == '(13 ** bar)'
+
+    assert _render(foo >> 14) == '(foo >> 14)'
+    assert _render(15 >> bar) == '(15 >> bar)'
+
     assert _render(foo.baz) == 'foo.baz'
     assert _render(foo[30]) == 'foo[30]'
     assert _render(foo.baz[31].fiz[32]) == 'foo.baz[31].fiz[32]'
@@ -107,14 +111,36 @@ def test_simple_operators():
 
 
 def test_for_statement():
-    foo = Code('foo')
-    bar = Code('bar')
-    PRINT = Code('print')
-
+    foo, bar, PRINT = Code('foo'), Code('bar'), Code('print')
     b = CodeBuilder()
+
     b += bar << Code('baz()')
     with b.FOR(foo, in_=bar):
         b += PRINT(foo)
 
     result = b.write_source().strip()
     assert result == 'bar = baz()\nfor foo in bar:\n    print(foo)'
+
+
+def test_extend_method():
+    fiz, buz = Code('fiz'), Code('buz')
+
+    b = CodeBuilder()
+    b.extend([
+        fiz << 'ok',
+        buz << fiz.upper(),
+    ])
+    result = b.write_source().strip()
+    assert result == "fiz = 'ok'\nbuz = fiz.upper()"
+
+
+def test_tuple_assignment():
+    zim, zam, zoom = Code('zim'), Code('zam'), Code('zoom')
+    assign = (zim, zam) << zoom()
+    assert _render(assign) == '(zim, zam) = zoom()'
+
+
+def test_slice_expression():
+    foo, bar = Code('foo'), Code('bar')
+    assert _render(foo[bar : 10]) == 'foo[slice(bar, 10, None)]'
+    assert _render(bar[11 : foo]) == 'bar[slice(11, foo, None)]'

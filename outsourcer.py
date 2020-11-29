@@ -19,7 +19,6 @@ class CodeBuilder:
         self._num_blocks = 1
         self._max_num_blocks = max_num_blocks
         self._names = defaultdict(int)
-        self._global_constants = {}
 
     def current_num_blocks(self):
         return self._num_blocks
@@ -72,19 +71,19 @@ class CodeBuilder:
 
     @contextmanager
     def CLASS(self, name, superclass=None):
-        with self._new_block() as body:
+        with self._new_block() as block:
             yield
         extra = f'({superclass})' if superclass else ''
         self.append(Code('class ', name, extra, ':'))
-        self.append(_Block(body))
+        self.append(_Block(block))
         self.add_newline()
 
     @contextmanager
     def DEF(self, name, params):
-        with self._new_block() as body:
+        with self._new_block() as block:
             yield
         self.append(Code('def ', name, '(', ', '.join(params), '):'))
-        self.append(_Block(body))
+        self.append(_Block(block))
         self.add_newline()
 
     def WHILE(self, condition):
@@ -102,27 +101,46 @@ class CodeBuilder:
     def ELIF_NOT(self, condition):
         return self.ELIF(Code('not (', Val(condition), ')'))
 
+    def ELSE(self):
+        return self._control_block('else')
+
     def WITH(self, condition, as_=OMITTED):
         if as_ is not OMITTED:
             condition = Code(Val(condition), ' as ', Code(as_))
         return self._control_block('with', condition)
 
-    @contextmanager
-    def ELSE(self):
-        with self._new_block() as else_body:
-            yield
-        self.append('else:')
-        self.append(_Block(else_body))
+    def TRY(self):
+        return self._control_block('try')
+
+    def EXCEPT(self, condition=OMITTED, as_=OMITTED):
+        if condition is OMITTED and as_ is not OMITTED:
+            raise TypeError('Missing exception specifier')
+        if as_ is not OMITTED:
+            condition = Code(Val(condition), ' as ', Code(as_))
+        return self._control_block('except', condition)
+
+    def FINALLY(self):
+        return self._control_block('finally')
 
     def FOR(self, item, in_):
-        expr = Code(Val(item), ' in ', Val(in_))
-        return self._control_block('for', expr)
+        return self._control_block('for', Code(Val(item), ' in ', Val(in_)))
 
-    def RETURN(self, obj):
-        return self.append(Code('return ', Val(obj)))
+    def RETURN(self, obj=OMITTED):
+        return self._control_line('return', obj)
 
-    def YIELD(self, obj):
-        return self.append(Code('yield ', Val(obj)))
+    def YIELD(self, obj=OMITTED):
+        return self._control_line('yield', obj)
+
+    def RAISE(self, obj=OMITTED):
+        return self._control_line('raise', obj)
+
+    def ASSERT(self, obj):
+        return self._control_line('assert', obj)
+
+    def _control_line(self, keyword, obj=OMITTED):
+        return self.append(Code(keyword)
+            if obj is OMITTED
+            else Code(keyword, ' ', Val(obj)))
 
     @contextmanager
     def global_section(self):
@@ -135,11 +153,12 @@ class CodeBuilder:
             self._statements, self._num_blocks = saved
 
     @contextmanager
-    def _control_block(self, keyword, condition):
-        with self._new_block() as body:
+    def _control_block(self, keyword, condition=OMITTED):
+        with self._new_block() as block:
             yield
-        self.append(Code(keyword, ' ', Val(condition), ':'))
-        self.append(_Block(body))
+        extra = () if condition is OMITTED else (' ', Val(condition))
+        self.append(Code(keyword, *extra, ':'))
+        self.append(_Block(block))
 
     @contextmanager
     def _new_block(self):

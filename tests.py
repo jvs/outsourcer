@@ -1,6 +1,10 @@
 from contextlib import ExitStack
 from textwrap import dedent
+import types
+
 from outsourcer import Code, CodeBuilder
+
+import pytest
 
 
 def test_simple_program():
@@ -179,6 +183,13 @@ def test_has_available_blocks():
     assert b.current_num_blocks() == 1
     assert b.has_available_blocks()
 
+    # Make sure that we can compile a source with 20 blocks.
+    source = b.write_source()
+    name = 'test_has_available_blocks'
+    code = compile(source, f'<{name}>', 'exec', optimize=2)
+    module = types.ModuleType(name)
+    exec(code, module.__dict__)
+
 
 def test_var_method():
     b = CodeBuilder()
@@ -251,6 +262,7 @@ def test_control_flow_statements():
     b = CodeBuilder()
     with b.WHILE(zim() > 0):
         with b.IF(zam(1, 2, 3) == 'ok'):
+            b.ASSERT(Code('something') == Code('value'))
             b += zom('hi')
         with b.ELIF(zam(4, 5, 6) == 'fine'):
             b += zom('well')
@@ -260,6 +272,7 @@ def test_control_flow_statements():
     assert b.write_source().strip() == dedent('''
         while (zim() > 0):
             if (zam(1, 2, 3) == 'ok'):
+                assert (something == value)
                 zom('hi')
             elif (zam(4, 5, 6) == 'fine'):
                 zom('well')
@@ -284,4 +297,51 @@ def test_control_flow_statements():
             elif not (zam('fine')):
                 while zom('continue'):
                     yield 'running'
+    ''').strip()
+
+    b = CodeBuilder()
+    Foo, Bar = Code('Foo'), Code('Bar')
+    with b.TRY():
+        b.RAISE(Foo('fail'))
+    with b.EXCEPT((Foo, Bar), as_='exc'):
+        b += zim(1, 2, 3)
+    with b.FINALLY():
+        b.RETURN(zam(True))
+
+    assert b.write_source().strip() == dedent('''
+        try:
+            raise Foo('fail')
+        except (Foo, Bar) as exc:
+            zim(1, 2, 3)
+        finally:
+            return zam(True)
+    ''').strip()
+
+
+def test_except_without_type_but_with_name():
+    b = CodeBuilder()
+    with pytest.raises(TypeError):
+        b.EXCEPT(as_='foo')
+
+
+def test_global_section():
+    b = CodeBuilder()
+    with b.DEF('foo', ['bar', 'baz']):
+        with b.IF(Code('fiz')):
+            with b.global_section():
+                b += Code('bam') << 100
+            b += Code('zim')(1, 2, 3)
+        with b.ELSE():
+            with b.global_section():
+                b += Code('buz') << 200
+            b += Code('zam')(4, 5, 6)
+
+    assert b.write_source().strip() == dedent('''
+        bam = 100
+        buz = 200
+        def foo(bar, baz):
+            if fiz:
+                zim(1, 2, 3)
+            else:
+                zam(4, 5, 6)
     ''').strip()

@@ -1,3 +1,5 @@
+from contextlib import ExitStack
+from textwrap import dedent
 from outsourcer import Code, CodeBuilder
 
 
@@ -145,3 +147,141 @@ def test_slice_expression():
     assert _render(foo[bar : 10]) == 'foo[slice(bar, 10, None)]'
     assert _render(bar[11 : foo]) == 'bar[slice(11, foo, None)]'
     assert _render(foo[1:9]) == 'foo[slice(1, 9, None)]'
+
+
+def test_add_global_method():
+    fiz, baz, buz = Code('fiz'), Code('baz'), Code('buz')
+    b = CodeBuilder()
+    with b.DEF('foo', ['bar', 'bam']):
+        bar, bam = Code('bar'), Code('bam')
+        b += fiz << bar + 1
+        b.append_global(baz << 100)
+        b.RETURN(bam < baz - fiz)
+        b.append_global(Code('assert baz > 50'))
+    assert b.write_source().strip() == dedent('''
+        baz = 100
+        assert baz > 50
+        def foo(bar, bam):
+            fiz = (bar + 1)
+            return (bam < (baz - fiz))
+    ''').strip()
+
+
+def test_has_available_blocks():
+    b = CodeBuilder()
+    with ExitStack() as stack:
+        for i in range(1, 20):
+            assert b.current_num_blocks() == i
+            assert b.has_available_blocks()
+            stack.enter_context(b.IF(True))
+        assert not b.has_available_blocks()
+
+    assert b.current_num_blocks() == 1
+    assert b.has_available_blocks()
+
+
+def test_var_method():
+    b = CodeBuilder()
+    b.var('foo', 1)
+    b.var('foo', 2)
+    foo = b.var('foo')
+    b += foo << 3
+    bar = b.var('bar')
+    assert b.write_source().strip() == dedent('''
+        foo1 = 1
+        foo2 = 2
+        foo3 = 3
+    ''').strip()
+
+
+def test_comment_methods():
+    b = CodeBuilder()
+    b.add_docstring('This is a docstring.\nTry using """triple quotes"""...')
+    b.add_newline()
+    with b.CLASS('Foo'):
+        b.add_docstring('This is another docstring.')
+        b.add_newline()
+        with b.DEF('bar', ['self', 'baz', 'fiz']):
+            fiz, baz, buz = Code('fiz'), Code('baz'), Code('buz')
+            b.add_docstring('One more docstring.')
+            b += Code('buz') << 123
+            b.add_comment('This is a normal comment.\nThis is a second line.')
+            b.RETURN(fiz + baz + buz)
+
+    assert b.write_source().strip() == dedent(r'''
+        """
+        This is a docstring.
+        Try using \"\"\"triple quotes\"\"\"...
+        """
+
+        class Foo:
+            """
+            This is another docstring.
+            """
+
+            def bar(self, baz, fiz):
+                """
+                One more docstring.
+                """
+                buz = 123
+                # This is a normal comment.
+                # This is a second line.
+                return ((fiz + baz) + buz)
+    ''').strip()
+
+
+def test_control_flow_statements():
+    zim, zam, zom = Code('zim'), Code('zam'), Code('zom')
+
+    b = CodeBuilder()
+    with b.WHILE(True): pass
+    assert b.write_source().strip() == dedent('''
+        while True:
+            pass
+    ''').strip()
+
+
+    b = CodeBuilder()
+    with b.WITH(zim(True), as_='fiz'): pass
+    assert b.write_source().strip() == dedent('''
+        with zim(True) as fiz:
+            pass
+    ''').strip()
+
+    b = CodeBuilder()
+    with b.WHILE(zim() > 0):
+        with b.IF(zam(1, 2, 3) == 'ok'):
+            b += zom('hi')
+        with b.ELIF(zam(4, 5, 6) == 'fine'):
+            b += zom('well')
+        with b.ELSE():
+            b += zom('bye')
+
+    assert b.write_source().strip() == dedent('''
+        while (zim() > 0):
+            if (zam(1, 2, 3) == 'ok'):
+                zom('hi')
+            elif (zam(4, 5, 6) == 'fine'):
+                zom('well')
+            else:
+                zom('bye')
+    ''').strip()
+
+    b = CodeBuilder()
+    with b.FOR(zim, in_=[1, 2, 3]):
+        with b.IF_NOT(zam('ok')):
+            with b.IF(zom('so')):
+                b.YIELD('waiting')
+        with b.ELIF_NOT(zam('fine')):
+            with b.WHILE(zom('continue')):
+                b.YIELD('running')
+
+    assert b.write_source().strip() == dedent('''
+        for zim in [1, 2, 3]:
+            if not (zam('ok')):
+                if zom('so'):
+                    yield 'waiting'
+            elif not (zam('fine')):
+                while zom('continue'):
+                    yield 'running'
+    ''').strip()

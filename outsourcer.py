@@ -12,14 +12,17 @@ OMITTED = object()
 
 
 class CodeBuilder:
-    def __init__(self):
+    def __init__(self, max_num_blocks=20):
         self.state = {}
         self._root = []
         self._statements = self._root
         self._num_blocks = 1
-        self._max_num_blocks = 19
+        self._max_num_blocks = max_num_blocks
         self._names = defaultdict(int)
         self._global_constants = {}
+
+    def current_num_blocks(self):
+        return self._num_blocks
 
     def __iadd__(self, statement):
         return self.append(statement)
@@ -41,7 +44,7 @@ class CodeBuilder:
     def append_global(self, statement):
         self._root.append(statement)
 
-    def has_available_blocks(self, num_blocks):
+    def has_available_blocks(self, num_blocks=1):
         return self._num_blocks + num_blocks <= self._max_num_blocks
 
     def var(self, base_name, initializer=OMITTED):
@@ -91,7 +94,18 @@ class CodeBuilder:
         return self._control_block('if', condition)
 
     def IF_NOT(self, condition):
-        return self.IF(Code('not ', Val(condition)))
+        return self.IF(Code('not (', Val(condition), ')'))
+
+    def ELIF(self, condition):
+        return self._control_block('elif', condition)
+
+    def ELIF_NOT(self, condition):
+        return self.ELIF(Code('not (', Val(condition), ')'))
+
+    def WITH(self, condition, as_=OMITTED):
+        if as_ is not OMITTED:
+            condition = Code(Val(condition), ' as ', Code(as_))
+        return self._control_block('with', condition)
 
     @contextmanager
     def ELSE(self):

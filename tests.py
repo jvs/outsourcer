@@ -2,7 +2,7 @@ from contextlib import ExitStack
 from textwrap import dedent
 import types
 
-from outsourcer import Code, CodeBuilder, sym
+from outsourcer import Code, CodeBuilder, Yield, sym
 
 import pytest
 
@@ -343,3 +343,8 @@ def test_global_section():
             else:
                 zam(4, 5, 6)
     ''').strip()
+
+
+def test_yield_expression():
+    expr = sym.foo << Yield(sym.bar(1, 2, 3))
+    assert _render(expr) == 'foo = (yield bar(1, 2, 3))'

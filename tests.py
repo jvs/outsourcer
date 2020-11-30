@@ -2,17 +2,16 @@ from contextlib import ExitStack
 from textwrap import dedent
 import types
 
-from outsourcer import Code, CodeBuilder
+from outsourcer import Code, CodeBuilder, sym
 
 import pytest
 
 
 def test_simple_program():
-    foo, bar, PRINT = Code('foo'), Code('bar'), Code('print')
     b = CodeBuilder()
 
-    with b.IF(foo + 1 < bar):
-        b += PRINT('ok')
+    with b.IF(sym.foo + 1 < sym.bar):
+        b += sym.print('ok')
 
     result = b.write_source().strip()
     assert result == "if ((foo + 1) < bar):\n    print('ok')"
@@ -34,20 +33,19 @@ def test_simple_literals():
 
 
 def test_collections_with_expressions():
-    foo, bar = Code('foo'), Code('bar')
-    assert _render([foo + 1, bar('ok')]) == "[(foo + 1), bar('ok')]"
-    assert _render([foo({'key': bar / 2})]) == "[foo({'key': (bar / 2)})]"
+    assert _render([sym.foo + 1, sym.bar('ok')]) == "[(foo + 1), bar('ok')]"
+    assert _render([sym.foo({'key': sym.bar / 2})]) == "[foo({'key': (bar / 2)})]"
 
 
 def test_function_calls():
-    foo, bar = Code('foo'), Code('bar')
+    foo, bar = sym.foo, sym.bar
     assert _render(foo(bar, 'baz')) == "foo(bar, 'baz')"
     assert _render(foo(bar(foo))) == 'foo(bar(foo))'
     assert _render(foo(True, msg='hi', count=1)) == "foo(True, msg='hi', count=1)"
 
 
 def test_simple_operators():
-    foo, bar = Code('foo'), Code('bar')
+    foo, bar = sym.foo, sym.bar
 
     assert _render(foo + bar) == '(foo + bar)'
     assert _render(foo + 'bar') == "(foo + 'bar')"
@@ -117,19 +115,19 @@ def test_simple_operators():
 
 
 def test_for_statement():
-    foo, bar, PRINT = Code('foo'), Code('bar'), Code('print')
+    foo, bar = Code('foo'), Code('bar')
     b = CodeBuilder()
 
-    b += bar << Code('baz()')
+    b += bar << sym.baz()
     with b.FOR(foo, in_=bar):
-        b += PRINT(foo)
+        b += sym.print(foo)
 
     result = b.write_source().strip()
     assert result == 'bar = baz()\nfor foo in bar:\n    print(foo)'
 
 
 def test_extend_method():
-    fiz, buz = Code('fiz'), Code('buz')
+    fiz, buz = sym('fiz'), sym('buz')
 
     b = CodeBuilder()
     b.extend([
@@ -147,7 +145,7 @@ def test_unpacking_assignment():
 
 
 def test_slice_expression():
-    foo, bar = Code('foo'), Code('bar')
+    foo, bar = sym.foo, sym.bar
     assert _render(foo[bar : 10]) == 'foo[slice(bar, 10, None)]'
     assert _render(bar[11 : foo]) == 'bar[slice(11, foo, None)]'
     assert _render(foo[1:9]) == 'foo[slice(1, 9, None)]'

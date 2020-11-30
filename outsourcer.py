@@ -6,7 +6,7 @@ import textwrap
 
 __version__ = '0.0.1'
 
-__all__ = ['CodeBuilder', 'Code', 'Val', 'Yield']
+__all__ = ['CodeBuilder', 'Code', 'Val', 'Yield', 'sym']
 
 OMITTED = object()
 
@@ -378,3 +378,14 @@ class _Writer:
             obj._write(self)
         else:
             self._out.write(str(obj))
+
+
+class _SymbolFactory:
+    def __call__(self, *a, **k):
+        return Code(*a, **k)
+
+    def __getattr__(self, name):
+        return Code(name)
+
+
+sym = _SymbolFactory()

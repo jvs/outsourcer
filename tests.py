@@ -13,14 +13,14 @@ def test_simple_program():
     with b.IF(sym.foo + 1 < sym.bar):
         b += sym.print('ok')
 
-    result = b.write_source().strip()
+    result = b.source_code().strip()
     assert result == "if ((foo + 1) < bar):\n    print('ok')"
 
 
 def _render(expr):
     b = CodeBuilder()
     b += expr
-    return b.write_source().strip()
+    return b.source_code().strip()
 
 
 def test_simple_literals():
@@ -122,7 +122,7 @@ def test_for_statement():
     with b.FOR(foo, in_=bar):
         b += sym.print(foo)
 
-    result = b.write_source().strip()
+    result = b.source_code().strip()
     assert result == 'bar = baz()\nfor foo in bar:\n    print(foo)'
 
 
@@ -134,7 +134,7 @@ def test_extend_method():
         fiz << 'ok',
         buz << fiz.upper(),
     ])
-    result = b.write_source().strip()
+    result = b.source_code().strip()
     assert result == "fiz = 'ok'\nbuz = fiz.upper()"
 
 
@@ -160,7 +160,7 @@ def test_add_global_method():
         b.append_global(baz << 100)
         b.RETURN(bam < baz - fiz)
         b.append_global(Code('assert baz > 50'))
-    assert b.write_source().strip() == dedent('''
+    assert b.source_code().strip() == dedent('''
         baz = 100
         assert baz > 50
         def foo(bar, bam):
@@ -182,11 +182,8 @@ def test_has_available_blocks():
     assert b.has_available_blocks()
 
     # Make sure that we can compile a source with 20 blocks.
-    source = b.write_source()
-    name = 'test_has_available_blocks'
-    code = compile(source, f'<{name}>', 'exec', optimize=2)
-    module = types.ModuleType(name)
-    exec(code, module.__dict__)
+    module = b.compile(source_var='_source_code')
+    assert isinstance(module._source_code, str)
 
 
 def test_var_method():
@@ -196,7 +193,7 @@ def test_var_method():
     foo = b.var('foo')
     b += foo << 3
     bar = b.var('bar')
-    assert b.write_source().strip() == dedent('''
+    assert b.source_code().strip() == dedent('''
         foo1 = 1
         foo2 = 2
         foo3 = 3
@@ -217,7 +214,7 @@ def test_comment_methods():
             b.add_comment('This is a normal comment.\nThis is a second line.')
             b.RETURN(fiz + baz + buz)
 
-    assert b.write_source().strip() == dedent(r'''
+    assert b.source_code().strip() == dedent(r'''
         """
         This is a docstring.
         Try using \"\"\"triple quotes\"\"\"...
@@ -244,7 +241,7 @@ def test_control_flow_statements():
 
     b = CodeBuilder()
     with b.WHILE(True): pass
-    assert b.write_source().strip() == dedent('''
+    assert b.source_code().strip() == dedent('''
         while True:
             pass
     ''').strip()
@@ -252,7 +249,7 @@ def test_control_flow_statements():
 
     b = CodeBuilder()
     with b.WITH(zim(True), as_='fiz'): pass
-    assert b.write_source().strip() == dedent('''
+    assert b.source_code().strip() == dedent('''
         with zim(True) as fiz:
             pass
     ''').strip()
@@ -267,7 +264,7 @@ def test_control_flow_statements():
         with b.ELSE():
             b += zom('bye')
 
-    assert b.write_source().strip() == dedent('''
+    assert b.source_code().strip() == dedent('''
         while (zim() > 0):
             if (zam(1, 2, 3) == 'ok'):
                 assert (something == value)
@@ -287,7 +284,7 @@ def test_control_flow_statements():
             with b.WHILE(zom('continue')):
                 b.YIELD('running')
 
-    assert b.write_source().strip() == dedent('''
+    assert b.source_code().strip() == dedent('''
         for zim in [1, 2, 3]:
             if not (zam('ok')):
                 if zom('so'):
@@ -306,7 +303,7 @@ def test_control_flow_statements():
     with b.FINALLY():
         b.RETURN(zam(True))
 
-    assert b.write_source().strip() == dedent('''
+    assert b.source_code().strip() == dedent('''
         try:
             raise Foo('fail')
         except (Foo, Bar) as exc:
@@ -334,7 +331,7 @@ def test_global_section():
                 b += Code('buz') << 200
             b += Code('zam')(4, 5, 6)
 
-    assert b.write_source().strip() == dedent('''
+    assert b.source_code().strip() == dedent('''
         bam = 100
         buz = 200
         def foo(bar, baz):

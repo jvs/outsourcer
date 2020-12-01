@@ -2,6 +2,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 import io
 import textwrap
+import types
 
 
 __version__ = '0.0.1'
@@ -26,11 +27,23 @@ class CodeBuilder:
     def __iadd__(self, statement):
         return self.append(statement)
 
-    def write_source(self):
+    def source_code(self):
         writer = _Writer()
         for statement in self._statements:
             writer.write_line(statement)
         return writer.getvalue()
+
+    def compile(self, module_name='code', docstring=None, source_var=None):
+        source_code = self.source_code()
+        code_object = compile(source_code, f'<{module_name}>', 'exec', optimize=2)
+        module = types.ModuleType(module_name, doc=docstring)
+        exec(code_object, module.__dict__)
+
+        # Optionally assign the source code to a variable in the module.
+        if source_var is not None:
+            setattr(module, source_var, source_code)
+
+        return module
 
     def append(self, statement):
         self._statements.append(statement)

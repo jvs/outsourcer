@@ -35,6 +35,10 @@ coverage: clean image
 		&& coverage html"
 	open "htmlcov/index.html"
 
+# Build the documentation.
+docs:
+	$(RUN) python -m exemplary --paths "**/*.md" --render
+
 # How to publish a release:
 # - Update __version__ in outsourcer.py.
 # - Commit / merge to "main" branch.

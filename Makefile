@@ -1,13 +1,23 @@
-# Runs the docker container and executes the command.
-RUN := docker run --rm --name outsourcer -v `pwd`:/workspace outsourcer
+test: venv clean
+	.venv/bin/python -m pytest -vv -s tests.py
 
-# Runs bash in the container.
-bash:
-	docker run --rm --name outsourcer -v `pwd`:/workspace -it outsourcer /bin/bash
+repl: venv
+	.venv/bin/python
 
-# Create a docker image with Python and our dev dependencies.
-image: Dockerfile
-	docker build -t outsourcer .
+venv: .venv/bin/activate
+
+.venv/bin/activate: requirements-dev.txt
+	test -d .venv || python3 -m venv .venv
+	.venv/bin/pip install --upgrade pip
+	.venv/bin/pip install -r requirements-dev.txt
+	touch .venv/bin/activate
+
+# Run the tests, compute test coverage, and open the coverage report.
+coverage: venv clean
+	.venv/bin/coverage run -m pytest -vv -s tests.py \
+		&& .venv/bin/coverage report \
+		&& .venv/bin/coverage html
+	open "htmlcov/index.html"
 
 # Remove random debris left around by python, pytest, and coverage.
 clean:
@@ -24,20 +34,9 @@ clean:
 		MANIFEST \
 		*.egg-info
 
-# Run the tests in a docker container.
-test: clean image
-	$(RUN) python -m pytest -v -s tests.py
-
-# Run the tests, compute test coverage, and open the coverage report.
-coverage: clean image
-	$(RUN) /bin/bash -c "coverage run -m pytest -v -s tests.py \
-		&& coverage report \
-		&& coverage html"
-	open "htmlcov/index.html"
-
 # Build the documentation.
 docs:
-	$(RUN) python -m exemplary --paths "**/*.md" --render
+	.venv/bin/python -m exemplary --paths "**/*.md" --render
 
 # How to publish a release:
 # - Update __version__ in outsourcer.py.
@@ -69,4 +68,4 @@ upload_test: dist
 upload_real: dist
 	twine upload --repository pypi dist/*
 
-.PHONY: bash clean coverage dist tag test upload_real upload_test
+.PHONY: clean coverage dist tag test upload_real upload_test

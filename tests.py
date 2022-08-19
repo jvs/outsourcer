@@ -12,9 +12,10 @@ def test_simple_program():
 
     with b.IF(sym.foo + 1 < sym.bar):
         b += sym.print('ok')
+        b += "print('bye')"
 
     result = b.source_code().strip()
-    assert result == "if ((foo + 1) < bar):\n    print('ok')"
+    assert result == "if ((foo + 1) < bar):\n    print('ok')\n    print('bye')"
 
 
 def _render(expr):

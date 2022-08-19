@@ -25,6 +25,8 @@ class CodeBuilder:
         return self._num_blocks
 
     def __iadd__(self, statement):
+        if statement and isinstance(statement, str):
+            statement = Code(statement)
         return self.append(statement)
 
     def source_code(self):

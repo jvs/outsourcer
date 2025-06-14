@@ -31,6 +31,14 @@ dist: clean
     uv build
     uv run twine check dist/*
 
+# How to publish a release:
+# - Update __version__ in outsourcer.py.
+# - Commit / merge to "main" branch.
+# - Run:
+#   - just tag
+#   - just upload_test
+#   - just upload_real
+
 # Tag version (extract from outsourcer.py)
 tag: clean
     #!/usr/bin/env bash
@@ -38,3 +46,11 @@ tag: clean
     echo "Tagging version $VERSION"
     git tag -a "$VERSION" -m "Version $VERSION"
     git push origin "$VERSION"
+
+# Upload the library to pypitest.
+upload_test: dist
+    twine upload --repository pypitest dist/*
+
+# Upload the library to pypi.
+upload_real: dist
+    twine upload --repository pypi dist/*

@@ -112,12 +112,21 @@ class CodeBuilder:
         return self._control_block('while', condition)
 
     def IF(self, condition):
+        if isinstance(condition, str):
+            condition = Code(condition)
+
         return self._control_block('if', condition)
 
     def IF_NOT(self, condition):
+        if isinstance(condition, str):
+            condition = Code(condition)
+
         return self.IF(Code('not (', Val(condition), ')'))
 
     def ELIF(self, condition):
+        if isinstance(condition, str):
+            condition = Code(condition)
+
         return self._control_block('elif', condition)
 
     def ELIF_NOT(self, condition):

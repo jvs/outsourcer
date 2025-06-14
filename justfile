@@ -21,6 +21,14 @@ sync:
 docs:
     uv run python -m exemplary --paths "**/*.md" --render
 
+# Run ruff linter
+lint:
+    uv run ruff check .
+
+# Run ruff formatter
+format:
+    uv run ruff format .
+
 # Clean generated files and cache
 clean:
     rm -rf __pycache__ .coverage .pytest_cache **/__pycache__ **/*.pyc docs/_build/* dist htmlcov MANIFEST *.egg-info

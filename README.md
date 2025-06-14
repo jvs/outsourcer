@@ -41,9 +41,9 @@ Here's a longer example:
 >>> item = sym.item
 >>> with b.FOR(item, in_=sym.some_collection):
 ...     with b.IF(item % 2 == 0):
-...         b << sym.print('even')
+...         b += sym.print('even')
 ...     with b.ELSE():
-...         b << sym.skipped.append(item)
+...         b += sym.skipped.append(item)
 ...
 >>> print(b.source_code())
 for item in some_collection:

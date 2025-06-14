@@ -60,6 +60,9 @@ class CodeBuilder:
         return self
 
     def append_global(self, statement):
+        if isinstance(statement, str):
+            statement = Code(statement)
+
         self._root.append(statement)
 
     def has_available_blocks(self, num_blocks=1):
@@ -80,7 +83,7 @@ class CodeBuilder:
             self.append(Code('# ', line))
 
     def add_docstring(self, content):
-        safe = content.replace('\\', '\\\\') .replace('"""', '\\"\\"\\"')
+        safe = content.replace('\\', '\\\\').replace('"""', '\\"\\"\\"')
         indent = '    ' * (self._num_blocks - 1)
         body = textwrap.indent(safe, indent)
         self.append(Code(f'"""\n{body}\n{indent}"""'))
@@ -157,9 +160,9 @@ class CodeBuilder:
         return self._control_line('assert', obj)
 
     def _control_line(self, keyword, obj=OMITTED):
-        return self.append(Code(keyword)
-            if obj is OMITTED
-            else Code(keyword, ' ', Val(obj)))
+        return self.append(
+            Code(keyword) if obj is OMITTED else Code(keyword, ' ', Val(obj))
+        )
 
     @contextmanager
     def global_section(self):

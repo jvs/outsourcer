@@ -1,6 +1,5 @@
 from contextlib import ExitStack
 from textwrap import dedent
-import types
 
 from outsourcer import Code, CodeBuilder, Yield, sym
 
@@ -98,8 +97,8 @@ def test_simple_operators():
     assert _render(foo % 10) == '(foo % 10)'
     assert _render(11 % foo) == '(11 % foo)'
 
-    assert _render(bar ** 12) == '(bar ** 12)'
-    assert _render(13 ** bar) == '(13 ** bar)'
+    assert _render(bar**12) == '(bar ** 12)'
+    assert _render(13**bar) == '(13 ** bar)'
 
     assert _render(foo >> 14) == '(foo >> 14)'
     assert _render(15 >> bar) == '(15 >> bar)'
@@ -131,10 +130,12 @@ def test_extend_method():
     fiz, buz = sym('fiz'), sym('buz')
 
     b = CodeBuilder()
-    b.extend([
-        fiz << 'ok',
-        buz << fiz.upper(),
-    ])
+    b.extend(
+        [
+            fiz << 'ok',
+            buz << fiz.upper(),
+        ]
+    )
     result = b.source_code().strip()
     assert result == "fiz = 'ok'\nbuz = fiz.upper()"
 
@@ -147,27 +148,30 @@ def test_unpacking_assignment():
 
 def test_slice_expression():
     foo, bar = sym.foo, sym.bar
-    assert _render(foo[bar : 10]) == 'foo[slice(bar, 10, None)]'
-    assert _render(bar[11 : foo]) == 'bar[slice(11, foo, None)]'
+    assert _render(foo[bar:10]) == 'foo[slice(bar, 10, None)]'
+    assert _render(bar[11:foo]) == 'bar[slice(11, foo, None)]'
     assert _render(foo[1:9]) == 'foo[slice(1, 9, None)]'
 
 
 def test_add_global_method():
-    fiz, baz, buz = Code('fiz'), Code('baz'), Code('buz')
+    fiz, baz = Code('fiz'), Code('baz')
     b = CodeBuilder()
+
     with b.DEF('foo', ['bar', 'bam']):
         bar, bam = Code('bar'), Code('bam')
         b += fiz << bar + 1
         b.append_global(baz << 100)
         b.RETURN(bam < baz - fiz)
-        b.append_global(Code('assert baz > 50'))
-    assert b.source_code().strip() == dedent('''
+        b.append_global('assert baz > 50')
+
+    expected = """
         baz = 100
         assert baz > 50
         def foo(bar, bam):
             fiz = (bar + 1)
             return (bam < (baz - fiz))
-    ''').strip()
+    """
+    assert b.source_code().strip() == dedent(expected).strip()
 
 
 def test_has_available_blocks():
@@ -193,12 +197,14 @@ def test_var_method():
     b.var('foo', 2)
     foo = b.var('foo')
     b += foo << 3
-    bar = b.var('bar')
-    assert b.source_code().strip() == dedent('''
+
+    expected = """
         foo1 = 1
         foo2 = 2
         foo3 = 3
-    ''').strip()
+    """
+
+    assert b.source_code().strip() == dedent(expected).strip()
 
 
 def test_comment_methods():
@@ -215,7 +221,7 @@ def test_comment_methods():
             b.add_comment('This is a normal comment.\nThis is a second line.')
             b.RETURN(fiz + baz + buz)
 
-    assert b.source_code().strip() == dedent(r'''
+    expected = r'''
         """
         This is a docstring.
         Try using \"\"\"triple quotes\"\"\"...
@@ -234,26 +240,37 @@ def test_comment_methods():
                 # This is a normal comment.
                 # This is a second line.
                 return ((fiz + baz) + buz)
-    ''').strip()
+    '''
+
+    assert b.source_code().strip() == dedent(expected).strip()
 
 
 def test_control_flow_statements():
     zim, zam, zom = Code('zim'), Code('zam'), Code('zom')
 
     b = CodeBuilder()
-    with b.WHILE(True): pass
-    assert b.source_code().strip() == dedent('''
+
+    with b.WHILE(True):
+        pass
+
+    expected = """
         while True:
             pass
-    ''').strip()
+    """
 
+    assert b.source_code().strip() == dedent(expected).strip()
 
     b = CodeBuilder()
-    with b.WITH(zim(True), as_='fiz'): pass
-    assert b.source_code().strip() == dedent('''
+
+    with b.WITH(zim(True), as_='fiz'):
+        pass
+
+    expected = """
         with zim(True) as fiz:
             pass
-    ''').strip()
+    """
+
+    assert b.source_code().strip() == dedent(expected).strip()
 
     b = CodeBuilder()
     with b.WHILE(zim() > 0):
@@ -265,7 +282,7 @@ def test_control_flow_statements():
         with b.ELSE():
             b += zom('bye')
 
-    assert b.source_code().strip() == dedent('''
+    expected = """
         while (zim() > 0):
             if (zam(1, 2, 3) == 'ok'):
                 assert (something == value)
@@ -274,7 +291,9 @@ def test_control_flow_statements():
                 zom('well')
             else:
                 zom('bye')
-    ''').strip()
+    """
+
+    assert b.source_code().strip() == dedent(expected).strip()
 
     b = CodeBuilder()
     with b.FOR(zim, in_=[1, 2, 3]):
@@ -285,7 +304,7 @@ def test_control_flow_statements():
             with b.WHILE(zom('continue')):
                 b.YIELD('running')
 
-    assert b.source_code().strip() == dedent('''
+    expected = """
         for zim in [1, 2, 3]:
             if not (zam('ok')):
                 if zom('so'):
@@ -293,7 +312,9 @@ def test_control_flow_statements():
             elif not (zam('fine')):
                 while zom('continue'):
                     yield 'running'
-    ''').strip()
+    """
+
+    assert b.source_code().strip() == dedent(expected).strip()
 
     b = CodeBuilder()
     Foo, Bar = Code('Foo'), Code('Bar')
@@ -304,14 +325,16 @@ def test_control_flow_statements():
     with b.FINALLY():
         b.RETURN(zam(True))
 
-    assert b.source_code().strip() == dedent('''
+    expected = """
         try:
             raise Foo('fail')
         except (Foo, Bar) as exc:
             zim(1, 2, 3)
         finally:
             return zam(True)
-    ''').strip()
+    """
+
+    assert b.source_code().strip() == dedent(expected).strip()
 
 
 def test_except_without_type_but_with_name():
@@ -332,7 +355,7 @@ def test_global_section():
                 b += Code('buz') << 200
             b += Code('zam')(4, 5, 6)
 
-    assert b.source_code().strip() == dedent('''
+    expected = """
         bam = 100
         buz = 200
         def foo(bar, baz):
@@ -340,7 +363,9 @@ def test_global_section():
                 zim(1, 2, 3)
             else:
                 zam(4, 5, 6)
-    ''').strip()
+    """
+
+    assert b.source_code().strip() == dedent(expected).strip()
 
 
 def test_yield_expression():

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "outsourcer"
+version = "0.0.1"
+description = "Build and test your Python examples"
+readme = "README.md"
+license = {text = "MIT License"}
+authors = [
+    {name = "jvs", email = "vonseg@protonmail.com"},
+]
+keywords = ["code-generation"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+]
+requires-python = ">=3.6"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/jvs/outsourcer"
+
+[tool.uv]
+dev-dependencies = [
+    "coverage",
+    "exemplary",
+    "pytest",
+]
+
+[project.optional-dependencies]
+dev = [
+    "coverage",
+    "exemplary", 
+    "pytest",
+]

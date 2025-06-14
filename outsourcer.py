@@ -25,9 +25,10 @@ class CodeBuilder:
         return self._num_blocks
 
     def __iadd__(self, statement):
-        if statement and isinstance(statement, str):
-            statement = Code(statement)
         return self.append(statement)
+
+    def __lshift__(self, statement):
+        self.append(statement)
 
     def source_code(self):
         writer = _Writer()
@@ -48,6 +49,9 @@ class CodeBuilder:
         return module
 
     def append(self, statement):
+        if statement and isinstance(statement, str):
+            statement = Code(statement)
+
         self._statements.append(statement)
         return self
 
